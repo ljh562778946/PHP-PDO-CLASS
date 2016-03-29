@@ -1,9 +1,12 @@
 <?php
 
 /**
- * Adam Rollinson
- * @_AdamRollinson
+ * Database class for MySQL PDO
+ * Provides security and quick functionality to your project
+ * @Copyright Adam Rollinson <adamleerollinson@gmail.com>
+ * @Repo https://github.com/AdamRollinson/PHP-PDO-CLASS
  */
+
 
 class Database {
 
@@ -11,7 +14,7 @@ class Database {
     private $dsn, $options;
     private $error;
     private $query, $results, $count, $wherearray = array();
-    private $operators;
+    private $operators, $order = array(), $limit = array();
 
     /**
      * @param $host
@@ -210,12 +213,11 @@ class Database {
 
     /**
      * @param $table
-     * @param null $extra
      * @return string
      */
 
-    public function _select($table, $extra = null) {
-        return $this->action("select *", $table, $extra);
+    public function _select($table) {
+        return $this->action("select *", $table);
     }
 
     /**
@@ -237,21 +239,22 @@ class Database {
     /**
      * @param $action
      * @param $table
-     * @param null $extra
      * @return string
      */
 
-    private function action($action, $table, $extra = null) {
+    private function action($action, $table) {
 
         $values = array();
         $query = array();
 
-            foreach($this->wherearray as $array) {
+        if($this->wherearray != null) {
 
-                if($array['query'] != null) {
+            foreach ($this->wherearray as $array) {
+
+                if ($array['query'] != null) {
                     $query[] = $array['query'];
 
-                    if($array['value'] != null) {
+                    if ($array['value'] != null) {
                         $values[] = $array['value'];
                     }
 
@@ -261,10 +264,25 @@ class Database {
 
             $i = implode(" ? and ", $query);
 
-            $where = $i . " ?";
+            $where = "where ". $i . " ?";
+
+        }
 
             try {
-                $this->query = $this->connection->prepare("{$action} from `{$table}` where {$where} {$extra}");
+
+                if($this->order != null && $this->limit == null) {
+                    $extra = $this->order;
+                }
+
+                if($this->limit != null && $this->order == null) {
+                    $extra = $this->limit;
+                }
+
+                if($this->limit != null && $this->order != null) {
+                    $extra = $this->order . " " .$this->limit;
+                }
+
+                $this->query = $this->connection->prepare("{$action} from `{$table}` {$where} {$extra}");
             } catch(PDOException $e) {
                 echo $e->getMessage();
             }
@@ -295,7 +313,11 @@ class Database {
                 try {
 
                     if($this->query->execute()) {
+
                         $this->wherearray = null;
+                        $this->order = null;
+                        $this->limit = null;
+
                         $this->results = $this->query->fetchAll(PDO::FETCH_ASSOC);
                         $this->count = $this->query->rowCount();
                     }
@@ -327,6 +349,36 @@ class Database {
             return $this->wherearray;
 
         }
+
+    }
+
+    /**
+     * @param $limit
+     * @return array|string
+     */
+    
+    public function _limit($limit) {
+
+        $this->limit = "limit {$limit}";
+
+        return $this->limit;
+    }
+
+    /**
+     * @param $field
+     * @param bool $desc
+     * @return array|string
+     */
+
+    public function _order($field, $desc = false) {
+
+        if($desc == true) {
+            $desc = "desc";
+        }
+
+        $this->order = "order by `{$field}` {$desc}";
+
+        return $this->order;
 
     }
 
